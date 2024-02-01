@@ -58,7 +58,7 @@ pub fn init_distance() {
     }
 }
 
-pub fn update_state(old_state: GameState, parsed: json::JsonValue) -> GameState {
+pub fn update_state(old_state: &GameState, parsed: &json::JsonValue) -> GameState {
     let os = match parsed["Player"].as_i32().unwrap() {
         0 => 0,
         1 => 1,
@@ -209,7 +209,7 @@ pub fn read_init(is_player_mode: bool, filename: Option<&String>) -> GameState {
         their_seat = 1-our_seat;
     }
     return update_state(
-        GameState {
+        &GameState {
             owner: [[Attitude::Neutral;16];15],
             troop: [[0 as i16;16];15],
             cell: [[general::NOTHING;16];15],
@@ -229,6 +229,6 @@ pub fn read_init(is_player_mode: bool, filename: Option<&String>) -> GameState {
             active_player_seat: 0,
             turn: 0,
         },
-        parsed
+        &parsed
     );
 }

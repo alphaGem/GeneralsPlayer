@@ -8,36 +8,38 @@ fn nxt(lines: &Vec<String>, j: &mut usize, gs: gamestate::GameState, display_lim
     let parsed = json::parse(&lines[*j]).unwrap();
     *j += 1;
     let action = operation::Op::from(utils::json_to_vec(&parsed["Action"]));
-    let check_gs;
-    if parsed_old["Player"].as_i32().unwrap() == parsed["Player"].as_i32().unwrap() || parsed["Player"].as_i32().unwrap()!=1 {
-        check_gs = operation::apply_op(&gs, action);
-    }
-    else{
-        check_gs = operation::apply_op(&operation::apply_op(&gs, operation::Op::End), action);
-    }
-    let new_gs = map::update_state(gs, parsed);
+    let new_gs = map::update_state(&gs, &parsed);
     if new_gs.turn >= display_limit {new_gs.print()};
-    if check_gs != new_gs {
-        new_gs.print();
-        check_gs.print();
-        eprintln!("Error: Unmatch!");
-        eprintln!("Generals {}", new_gs.generals==check_gs.generals);
-        let n=new_gs.generals.len();
-        for i in 0..n {
-            if new_gs.generals[i] != check_gs.generals[i] {
-                eprintln!("diff {} att {} {} dashcd {} {}", i, new_gs.generals[i].attitude, check_gs.generals[i].attitude,
-                    new_gs.generals[i].skills.dash.cd, check_gs.generals[i].skills.dash.cd
-                );
-            }
+    if do_check {
+        let check_gs;
+        if parsed_old["Player"].as_i32().unwrap() == parsed["Player"].as_i32().unwrap() || parsed["Player"].as_i32().unwrap()!=1 {
+            check_gs = operation::apply_op(&gs, action);
         }
-        eprintln!("ActivePlayer {} {}", new_gs.active_player_seat,check_gs.active_player_seat);
-        eprintln!("Our Side {}", new_gs.our==check_gs.our);
-        eprintln!("Our seat {} {}", new_gs.our.seat, check_gs.our.seat);
-        eprintln!("Our coin {} {}", new_gs.our.coin, check_gs.our.coin);
-        eprintln!("Their coin {} {}", new_gs.their.coin, check_gs.their.coin);
-        eprintln!("Their Side {}", new_gs.their==check_gs.their);
-        eprintln!("Cell {} | Troop {} | Owner {}", new_gs.cell == check_gs.cell,new_gs.troop==check_gs.troop, new_gs.owner==check_gs.owner);
-        
+        else{
+            check_gs = operation::apply_op(&operation::apply_op(&gs, operation::Op::End), action);
+        }
+        if check_gs != new_gs {
+            new_gs.print();
+            check_gs.print();
+            eprintln!("Error: Unmatch!");
+            eprintln!("Generals {}", new_gs.generals==check_gs.generals);
+            let n=new_gs.generals.len();
+            for i in 0..n {
+                if new_gs.generals[i] != check_gs.generals[i] {
+                    eprintln!("diff {} att {} {} dashcd {} {}", i, new_gs.generals[i].attitude, check_gs.generals[i].attitude,
+                        new_gs.generals[i].skills.dash.cd, check_gs.generals[i].skills.dash.cd
+                    );
+                }
+            }
+            eprintln!("ActivePlayer {} {}", new_gs.active_player_seat,check_gs.active_player_seat);
+            eprintln!("Our Side {}", new_gs.our==check_gs.our);
+            eprintln!("Our seat {} {}", new_gs.our.seat, check_gs.our.seat);
+            eprintln!("Our coin {} {}", new_gs.our.coin, check_gs.our.coin);
+            eprintln!("Their coin {} {}", new_gs.their.coin, check_gs.their.coin);
+            eprintln!("Their Side {}", new_gs.their==check_gs.their);
+            eprintln!("Cell {} | Troop {} | Owner {}", new_gs.cell == check_gs.cell,new_gs.troop==check_gs.troop, new_gs.owner==check_gs.owner);
+            
+        }
     }
     new_gs
 }
