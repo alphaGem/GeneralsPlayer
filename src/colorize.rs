@@ -85,25 +85,46 @@ impl Colorize for str {
 impl GameState {
     pub fn print(&self) {
         let title = format!("Round {}", self.turn).bold().underline();
+        let oc = format!(
+            "Our Coin {} | Tech motor={} Raft={} Track={} Rela.={}",
+            self.our.coin,
+            self.our.tech_tree.motor,
+            self.our.tech_tree.raft,
+            self.our.tech_tree.track,
+            self.our.tech_tree.relativity
+        ).friendly_fg();
+        let tc = format!(
+            "Their Coin {} | Tech motor={} Raft={} Track={} Rela.={}",
+            self.their.coin,
+            self.their.tech_tree.motor,
+            self.their.tech_tree.raft,
+            self.their.tech_tree.track,
+            self.their.tech_tree.relativity
+        ).hostile_fg();
         eprintln!("{}", title);
+        eprintln!("{}", oc);
+        eprintln!("{}", tc);
         eprintln!("{}", "  │ 00│ 01│ 02│ 03│ 04│ 05│ 06│ 07│ 08│ 09│ 10│ 11│ 12│ 13│ 14".neutral_fg().border_bg());
         eprintln!("{}", "──╋━━━┿━━━┿━━━┿━━━┿━━━╋━━━┿━━━┿━━━┿━━━┿━━━╋━━━┿━━━┿━━━┿━━━┿━━━╋".neutral_fg().border_bg());
         for i in 0..15 {
             eprint!("{}",format!("{:02}",i).neutral_fg().border_bg());
             for j in 0..15 {
-                const GENERAL_ID:[&str;32] = ["Ø","ł","A","B","C","D","!","@","#","$","%","^","&","*",":",";","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T"];
+                const GENERAL_ID:[&str;32] = 
+                  ["Ø","ł","A","B","C","D","!","@","#","$","%","^","&","*",":",";","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T"];
+                //  0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  16  17  18  19  20
                 let troop = self.troop[i][j];
                 let troop_str;
                 let general_str;
                 if troop >= 100 {
                     troop_str = "XX".to_string();
                 }
-                else if troop > 0 || self.cell[i][j] != general::NOTHING{
+                else if troop > 0 || self.cell[i][j] != general::NOTHING || self.owner[i][j] != Attitude::Neutral{
                     troop_str = format!("{:02}", troop);
                 }
                 else {
                     troop_str = "  ".to_string();
                 }
+
                 if self.cell[i][j] == general::NOTHING {
                     general_str = " ";
                 }

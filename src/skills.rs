@@ -1,5 +1,4 @@
 use crate::*;
-use crate::utils::manhattan_distance;
 
 macro_rules! CHECK {
     ($condition:expr) => {{
@@ -138,7 +137,7 @@ impl gamestate::GameState {
             }
         }
         else { // fail
-            let remaining = (force/def).ceil() as i16;
+            let remaining = (-force/def).ceil() as i16;
             self.troop[dst_pos.x as usize][dst_pos.y as usize] = remaining;
         }
     }
@@ -183,8 +182,10 @@ impl gamestate::GameState {
     pub fn march(&mut self, src_pos: Position, dst_pos: Position, num: i16) {
         if !self.check_march(src_pos, dst_pos, num) {panic!("Invalid march!")}
         self.attack(src_pos, dst_pos, num);
+        self.rest_march -= 1;
     }
     pub fn check_march(&self, src_pos: Position, dst_pos: Position, num: i16) -> bool {
+        CHECK!(self.rest_march>0);
         CHECK!(self.owner[src_pos.x as usize][src_pos.y as usize]==Attitude::Friendly);
         CHECK!(self.check_movability(src_pos, dst_pos));
         CHECK!(num>0);
@@ -193,32 +194,77 @@ impl gamestate::GameState {
         return true;
     }
 
+    fn get_general_distance(&self, src: Position, dst: Position, limit: i8) -> i32 {
+        let mut dis = [[255i32;16];15];
+        let mut queue = vec![src];
+        let mut head = 0;
+        let mut tail = 1;
+        const DX:[i8;4] = [-1,0,1,0];
+        const DY:[i8;4] = [0,-1,0,1];
+        dis[src.x as usize][src.y as usize] = 1;
+        while head < tail {
+            let p = queue[head];
+            head += 1;
+            for d in 0..4 {
+                let nx = p.x+DX[d];
+                let ny = p.y+DY[d];
+                if utils::chebyshev_distance(Position{x:nx,y:ny}, Position{x:7,y:7}) > 7 { 
+                    continue;
+                }
+                if self.our.tech_tree.raft == 0 {
+                    unsafe {
+                        if map::MAP[nx as usize][ny as usize]==Terrain::Swamp {
+                            continue;
+                        }
+                    }
+                }
+                if self.owner[nx as usize][ny as usize] != Attitude::Friendly {
+                    continue;
+                }
+                if self.cell[nx as usize][ny as usize] != general::NOTHING {
+                    continue;
+                }
+                if (Position{x:nx, y:ny})==dst {
+                    return dis[p.x as usize][p.y as usize]+1;
+                }
+                if dis[nx as usize][ny as usize] <= dis[p.x as usize][p.y as usize]+1 {
+                    continue;
+                }
+                dis[nx as usize][ny as usize] = dis[p.x as usize][p.y as usize]+1;
+                if dis[nx as usize][ny as usize] < limit as i32 {
+                    queue.push(Position {x:nx,y:ny});
+                    tail += 1;
+                }
+            }
+        }
+        return (limit+1) as i32;
+    }
+
     // general move
     pub fn shift(&mut self, general_id: GeneralId, dst_pos: Position) {
         if !self.check_shift(general_id, dst_pos) {panic!("invalid shift!");}
-        let general = &mut self.generals[general_id.0 as usize];
+        let general = &self.generals[general_id.0 as usize];
         let pos = general.pos;
+        let rest_shift = general.rest_shift;
+        let d = self.get_general_distance(pos, dst_pos, rest_shift);
+        let general = &mut self.generals[general_id.0 as usize];
+        general.rest_shift -= d as i8;
         general.pos = dst_pos;
         self.cell[pos.x as usize][pos.y as usize] = general::NOTHING;
         self.cell[dst_pos.x as usize][dst_pos.y as usize] = general_id;
     }
 
+
     pub fn check_shift(&self, general_id: GeneralId, dst_pos: Position) -> bool {
+        CHECK!(self.cell[dst_pos.x as usize][dst_pos.y as usize]==general::NOTHING);
+        CHECK!(self.owner[dst_pos.x as usize][dst_pos.y as usize]==Attitude::Friendly);
         let general = &self.generals[general_id.0 as usize];
         CHECK!(self.check_movability(general.pos, dst_pos));
         CHECK!(general.general_type != GeneralType::Mine);
-        let distance;
-        if self.our.tech_tree.raft == 1 {
-            distance = manhattan_distance(general.pos, dst_pos);
-        }
-        else {
-            unsafe {
-                distance = map::DIST[general.pos.x as usize][general.pos.y as usize][dst_pos.x as usize][dst_pos.y as usize];
-            }
-        }
-        eprintln!("dis check {} {}", distance, general.rest_shift);
+        let distance = self.get_general_distance(general.pos, dst_pos, general.rest_shift);
+        // eprintln!("dis check {} {} {} {}", general.pos, dst_pos, distance, general.rest_shift);
         CHECK!(distance > 0);
-        CHECK!(distance <= general.rest_shift);
+        CHECK!(distance <= general.rest_shift as i32);
         return true;
     }
 

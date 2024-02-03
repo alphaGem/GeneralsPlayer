@@ -42,7 +42,7 @@ fn bfs(pos: Position) {
             vis[nx as usize][ny as usize] = true;
             unsafe {
                 let dist = &mut DIST[pos.x as usize][pos.y as usize];
-                dist[nx as usize][ny as usize] = min(15,dist[p.x as usize][p.y as usize]+1);
+                dist[nx as usize][ny as usize] = min(63,dist[p.x as usize][p.y as usize]+1);
             }
             queue.push(Position {x:nx,y:ny});
             tail += 1;
@@ -62,13 +62,19 @@ pub fn init_distance() {
 /// Warning: the GameState returned by this function has `rest_shift=0` for all generals
 /// and `rest_march=2` for the game state, because they are not specified in the replay 
 /// file.
-pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue) -> GameState {
-    let os = match parsed["Player"].as_i32().unwrap() {
-        0 => 0,
-        1 => 1,
-        -1 => 0,
-        _ => panic!()
-    };
+pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue, force_os_zero: bool) -> GameState {
+    let os;
+    if force_os_zero {
+        os = 0;
+    }
+    else {
+        os = match parsed["Player"].as_i32().unwrap() {
+            0 => 0,
+            1 => 1,
+            -1 => 0,
+            _ => panic!()
+        };
+    }
     let ts = 1-os;
     let mut owner = old_state.owner;
     if old_state.our.seat != os {
@@ -91,7 +97,9 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue) -> 
         let plr = iter.next().unwrap().as_i32().unwrap();
         let trp = iter.next().unwrap().as_i32().unwrap();
         match plr {
-            -1 => {}
+            -1 => {
+                owner[pos[0]][pos[1]] = Attitude::Neutral;
+            }
             0|1 => {
                 if plr as i8==os
                     {owner[pos[0]][pos[1]] = Attitude::Friendly;}
@@ -145,35 +153,36 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue) -> 
             id,
             rest_shift: 0,
         });
-        cell[pos[0]][pos[1]] = GeneralId(general["Id"].as_u8().unwrap());
+        cell[pos[0]][pos[1]] = id;
     }
     let mut parsed_tech = parsed["Tech_level"].members();
-    let our_tech_tree;
-    let their_tech_tree;
-
-    let o = utils::json_to_vec(parsed_tech.next().unwrap());
-    our_tech_tree = TechTree {
-        motor: o[0] as i8,
-        raft: o[1] as i8,
-        track: o[2] as i8,
-        relativity: o[3] as i8,
-    };
-    drop(o);
     
     let o = utils::json_to_vec(parsed_tech.next().unwrap());
-    their_tech_tree = TechTree {
+    let t = utils::json_to_vec(parsed_tech.next().unwrap());
+    let tts=vec![
+    TechTree {
         motor: o[0] as i8,
         raft: o[1] as i8,
         track: o[2] as i8,
         relativity: o[3] as i8,
-    };
-    drop(o);
+    }, TechTree {
+        motor: t[0] as i8,
+        raft: t[1] as i8,
+        track: t[2] as i8,
+        relativity: t[3] as i8,
+    }];
     
     generals.sort_by(|a,b| a.id.0.cmp(&b.id.0));
-    let r = match parsed["Player"].as_i8().unwrap() {
-        -1 => parsed["Round"].as_i16().unwrap()+1,
-        _ => parsed["Round"].as_i16().unwrap(),
-    };
+    let r;
+    if force_os_zero {
+        r=1;
+    }
+    else {
+        r = match parsed["Player"].as_i8().unwrap() {
+            -1 => parsed["Round"].as_i16().unwrap()+1,
+            _ => parsed["Round"].as_i16().unwrap(),
+        };
+    }
     return GameState {
         owner: owner,
         troop: troop,
@@ -182,13 +191,13 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue) -> 
         our: Side {
             coin: parsed["Coins"][os as usize].as_i32().unwrap(),
             sw: None,
-            tech_tree: our_tech_tree,
+            tech_tree: tts[os as usize],
             seat: os,
         },
         their: Side {
             coin: parsed["Coins"][ts as usize].as_i32().unwrap(),
             sw: None,
-            tech_tree: their_tech_tree,
+            tech_tree: tts[ts as usize],
             seat: ts,
         },
         active_player_seat: os,
@@ -197,17 +206,20 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue) -> 
     }
 }
 
-pub fn read_init(is_player_mode: bool, filename: Option<&String>) -> GameState {
-    let line;
+pub fn read_init(is_player_mode: bool, filename: Option<&String>) -> (GameState, i8) {
+    let mut line = String::new();
     if is_player_mode {
-        let file = File::open(Path::new(filename.unwrap())).unwrap();
-        let br = BufReader::new(file);
-        line = br.lines().next().unwrap().unwrap();
+        if let Ok(file) = File::open(Path::new(filename.unwrap())) {
+            let br = BufReader::new(file);
+            line = br.lines().next().unwrap().unwrap();
+        }
+        else {
+            io::stdin().read_line(&mut line).unwrap();
+        }
     }
     else {
-        line = io::stdin().lock().lines().next().unwrap().unwrap();
+        io::stdin().read_line(&mut line).unwrap();
     }
-    
     let parsed = json::parse(&line).unwrap();
     let ctstr = parsed["Cell_type"].as_str().unwrap().as_bytes();
     for i in 0..15 {
@@ -223,17 +235,14 @@ pub fn read_init(is_player_mode: bool, filename: Option<&String>) -> GameState {
         }
     }
     init_distance();
-    let our_seat;
+    let mut our_seat;
     let their_seat;
-    if is_player_mode {
+    our_seat = parsed["Player"].as_i8().unwrap();
+    if our_seat == -1 {
         our_seat = 0;
-        their_seat = 1;
     }
-    else {
-        our_seat = parsed["Player"].as_i8().unwrap();
-        their_seat = 1-our_seat;
-    }
-    return update_state_by_json(
+    their_seat = 1-our_seat;
+    return (update_state_by_json(
         &GameState {
             owner: [[Attitude::Neutral;16];15],
             troop: [[0 as i16;16];15],
@@ -255,6 +264,7 @@ pub fn read_init(is_player_mode: bool, filename: Option<&String>) -> GameState {
             turn: 0,
             rest_march: 2,
         },
-        &parsed
-    );
+        &parsed,
+        true
+    ),our_seat);
 }

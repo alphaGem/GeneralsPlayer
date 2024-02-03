@@ -184,13 +184,18 @@ impl fmt::Display for Op {
 }
 
 pub fn send_op(ops: Vec::<Op>) {
+    let mut output = String::new();
     for op in ops {
-        println!("{}", op);
-        match io::stdout().flush() {
-            Ok(()) => {}
-            _ => {panic!("Failed to write to stdout?")}
-        };
+        output = format!("{}{}\n", output, op);
     }
+    let n = output.len() as i32;
+    let be_bytes = n.to_be_bytes();
+    let head = String::from_utf8_lossy(&be_bytes);
+    print!("{}{}", head, output);
+    match io::stdout().flush() {
+        Ok(()) => {}
+        _ => {panic!("Failed to write to stdout?")}
+    };
 }
 
 pub fn apply_op(old_gs: &GameState, op: Op) -> GameState {

@@ -67,6 +67,7 @@ pub use gamestate::{
 
 pub mod skills;
 pub mod operation;
+pub use operation::Op;
 pub mod map;
 pub use map::Terrain;
 pub mod colorize;

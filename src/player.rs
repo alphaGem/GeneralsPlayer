@@ -8,16 +8,15 @@ fn nxt(lines: &Vec<String>, j: &mut usize, gs: gamestate::GameState, display_lim
     let parsed = json::parse(&lines[*j]).unwrap();
     *j += 1;
     let action = operation::Op::from(utils::json_to_vec(&parsed["Action"]));
-    let new_gs = map::update_state_by_json(&gs, &parsed);
+    let new_gs = map::update_state_by_json(&gs, &parsed, false);
     if new_gs.turn >= display_limit {new_gs.print()};
     if do_check {
-        let check_gs;
-        if parsed_old["Player"].as_i32().unwrap() == parsed["Player"].as_i32().unwrap() || parsed["Player"].as_i32().unwrap()!=1 {
-            check_gs = operation::apply_op(&gs, action);
-        }
-        else{
-            check_gs = operation::apply_op(&operation::apply_op(&gs, operation::Op::End), action);
-        }
+        let check_gs = match (parsed_old["Player"].as_i32().unwrap(),parsed["Player"].as_i32().unwrap()) {
+            (-1,-1) => operation::apply_op(&operation::apply_op(&gs, operation::Op::End), operation::Op::End),
+            (0,0)|(1,1)|(1,-1)|(-1,0) => operation::apply_op(&gs, action),
+            (0,1)|(0,-1)|(-1,1) => operation::apply_op(&operation::apply_op(&gs, operation::Op::End), action),
+            _ => panic!()
+        };
         check_gs.check_with_replay_file(&new_gs);
         return check_gs;
     }
@@ -27,7 +26,7 @@ fn nxt(lines: &Vec<String>, j: &mut usize, gs: gamestate::GameState, display_lim
 pub fn play(do_check: bool) {
     // let filename = io::stdin().lock().lines().next().unwrap().unwrap();
     let filename = "map.json".to_string();
-    let init_gs = map::read_init(true, Some(&filename));
+    let (init_gs,_) = map::read_init(true, Some(&filename));
     init_gs.print();
     let file = File::open(Path::new(&filename)).unwrap();
     let br = BufReader::new(file);

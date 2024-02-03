@@ -1,5 +1,6 @@
 extern crate json;
 use std::cmp::max;
+use std::fmt;
 
 pub fn json_to_vec(j:&json::JsonValue) -> Vec::<usize> {
     let mut v = vec![];
@@ -13,6 +14,12 @@ pub fn json_to_vec(j:&json::JsonValue) -> Vec::<usize> {
 pub struct Position {
     pub x: i8,
     pub y: i8,
+}
+
+impl fmt::Display for Position {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {})", self.x, self.y)
+    }
 }
 
 #[derive(Clone, Copy)]

@@ -140,6 +140,8 @@ impl GameState {
      */
     pub fn tech_advancement(&mut self, tt: TechType) {
         if !self.check_tech_advancement(tt) {panic!("Invalid Tech Upgrading!")}
+        let cost = get_tech_cost(tt, self.our.tech_tree);
+        self.our.coin -= cost;
         match tt {
             TechType::Motor => {
                 self.our.tech_tree.motor += 1;
@@ -193,9 +195,13 @@ impl GameState {
                 Attitude::Neutral => {}
             }
         }
-        swap(&mut self.our.coin, &mut self.their.coin);
-        swap(&mut self.our.seat, &mut self.their.seat);
-        swap(&mut self.our.sw, &mut self.their.sw);
+        swap(&mut self.our, &mut self.their);
+        self.rest_march = match self.our.tech_tree.motor {
+            1 => 2,
+            2 => 3,
+            3 => 5,
+            _ => panic!()
+        };
         if self.active_player_seat == 0 && self.turn>0 {
             self.end_turn();
             
@@ -250,7 +256,8 @@ impl GameState {
                             &mut self.owner[i][j],
                             self.cell[i][j],
                             1
-                        )
+                        );
+                        eprintln!("attrition {} {} {}",i,j,self.owner[i][j]);
                     }
                 }
             }
@@ -377,6 +384,7 @@ impl GameState {
                 gs.print();
                 self.print();
                 eprintln!("{}", "Error: Simulated unmatch with Replay File".bold().red());
+                panic!();
             }
         }
     }
