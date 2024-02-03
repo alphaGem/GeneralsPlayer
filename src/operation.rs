@@ -164,6 +164,7 @@ impl fmt::Display for Op {
                     SWType::Boost => 2,
                     SWType::Teleport => 3,
                     SWType::Freeze => 4,
+                    SWType::Pending => panic!(),
                 };
                 if let Some(src_pos) = maybe_src_pos {
                     write!(f,"6 {} {} {} {} {}", t_num, dst_pos.x, dst_pos.y, src_pos.x, src_pos.y)
@@ -231,6 +232,7 @@ pub fn apply_op(old_gs: &GameState, op: Op) -> GameState {
                     gs.teleport(dst_pos, src_pos);
                 }
                 SWType::Freeze => gs.freeze(dst_pos),
+                SWType::Pending => panic!(),
             }
         }
         Op::Call(pos) => {

@@ -1,6 +1,6 @@
 extern crate json;
-use main::player;
+use main::*;
 
 fn main() {
-    player::play(false);
+    player::play(true);
 }

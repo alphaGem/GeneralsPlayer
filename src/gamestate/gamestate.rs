@@ -1,5 +1,6 @@
 use std::mem::swap;
 use crate::*;
+use crate::colorize::Colorize;
 
 macro_rules! CHECK {
     ($condition:expr) => {{
@@ -40,6 +41,19 @@ pub fn get_promotion_cost(general: &General, attr: AttrType) -> i32 {
     }
 }
 
+pub fn get_tech_cost(tech: TechType, tree: TechTree) -> i32 {
+    match tech {
+        TechType::Motor => {
+            if tree.motor == 1 {80}
+            else if tree.motor == 2 {150}
+            else {0}
+        }
+        TechType::Raft =>       if tree.raft==0         {100}   else {0},
+        TechType::Track =>      if tree.track==0        {75}    else {0},
+        TechType::Relativity => if tree.relativity==0   {250}   else {0},
+    }
+}
+
 impl General {
     fn reduce_cd(&mut self) {
         let s = &mut self.skills;
@@ -48,13 +62,12 @@ impl General {
                 skill.cd -= 1;
             }
         }
-        // TODO rest move
-        /*match self.attr.spd {
-            1 => self.rest_move = 1,
-            2 => self.rest_move = 2,
-            3 => self.rest_move = 3,
+        match self.attr.spd {
+            1 => self.rest_shift = 1,
+            2 => self.rest_shift = 2,
+            3 => self.rest_shift = 4,
             _ => panic!()
-        }*/
+        }
     }
 }
 
@@ -75,6 +88,7 @@ impl GameState {
                 general_type: GeneralType::Sub,
                 alive: true,
                 id: id,
+                rest_shift: 1,
             }
         );
         self.cell[pos.x as usize][pos.y as usize] = id;
@@ -83,6 +97,15 @@ impl GameState {
         CHECK!(self.our.coin >= 50);
         CHECK!(self.cell[pos.x as usize][pos.y as usize] == general::NOTHING);
         return true;
+    }
+
+    pub fn get_main(&self, attitude: Attitude) -> Option<&General>{
+        for g in &self.generals {
+            if g.general_type == GeneralType::Main && g.attitude == attitude {
+                return Some(&g);
+            }
+        }
+        return None;
     }
 
     
@@ -133,7 +156,9 @@ impl GameState {
         }
     }
     pub fn check_tech_advancement(&self, tt: TechType) -> bool {
-        // TODO
+        let cost = get_tech_cost(tt, self.our.tech_tree);
+        CHECK!(cost > 0);
+        CHECK!(self.our.coin >= cost);
         return true;
     }
 
@@ -177,15 +202,50 @@ impl GameState {
         }
     }
 
+    fn attrition(troop: &mut i16, owner: &mut Attitude, cell: GeneralId, num: i16) {
+        utils::reduce(troop, num);
+        // Place become neutral if attrition killed all units on it
+        if *troop == 0 && cell == general::NOTHING {
+            *owner = Attitude::Neutral;
+        }
+    }
+
+    fn radiation(troop: &mut [[i16; 16]; 15], owner: &mut[[Attitude;16];15], cell: &mut[[GeneralId;16];15], pos: Position) {
+        let xmin = cmp::max(pos.x-1, 0);
+        let xmax = cmp::min(pos.x+1, 15);
+        let ymin = cmp::max(pos.y-1, 0);
+        let ymax = cmp::min(pos.y+1, 15);
+        for x in xmin..xmax+1 {
+            for y in ymin..ymax+1 {
+                Self::attrition(
+                    &mut troop[x as usize][y as usize],
+                    &mut owner[x as usize][y as usize],
+                    cell[x as usize][y as usize],
+                    3
+                )
+            }
+        }
+    }
+
     fn end_turn(&mut self) {
-        if self.turn % 10 == 0 {
-            for i in 0..15 {
-                for j in 0..15 {
+        for i in 0..15 {
+            for j in 0..15 {
+                if self.turn % 10 == 0 {
                     match self.owner[i][j] {
                         Attitude::Friendly | Attitude::Hostile => {
                             self.troop[i][j] += 1;
                         }
                         Attitude::Neutral => {}
+                    }
+                }
+                unsafe {
+                    if map::MAP[i][j] == Terrain::Sand {
+                        Self::attrition(
+                            &mut self.troop[i][j],
+                            &mut self.owner[i][j],
+                            self.cell[i][j],
+                            1
+                        )
                     }
                 }
             }
@@ -195,13 +255,10 @@ impl GameState {
                 GeneralType::Main | GeneralType::Sub => {
                     match general.attitude {
                         Attitude::Friendly | Attitude::Hostile => {
-                            let prod;
-                            match general.attr.prod {
-                                1 => prod=1,
-                                2 => prod=2,
-                                3 => prod=4,
+                            let prod = match general.attr.prod {
+                                1 => 1, 2 => 2, 3 => 4,
                                 _ => panic!("Wrong production level?"),
-                            }
+                            };
                             self.troop[general.pos.x as usize][general.pos.y as usize] += prod;
                             general.reduce_cd();
                         }
@@ -211,14 +268,10 @@ impl GameState {
                 GeneralType::Mine => {
                     match general.attitude {
                         Attitude::Friendly | Attitude::Hostile => {
-                            let prod;
-                            match general.attr.prod {
-                                1 => prod=1,
-                                2 => prod=2,
-                                3 => prod=4,
-                                4 => prod=6,
+                            let prod = match general.attr.prod {
+                                1 => 1, 2 => 2, 3 => 4, 4 => 6,
                                 _ => panic!("Wrong production level?"),
-                            }
+                            };
                             if general.attitude == Attitude::Friendly {
                                 self.our.coin += prod;
                             }
@@ -231,7 +284,96 @@ impl GameState {
                 }
             }
         }
+        if let Some(sw) = &mut self.our.sw {
+            if sw.sw_type == SWType::Nuclear {
+                Self::radiation(&mut self.troop, &mut self.owner, &mut self.cell, sw.pos);
+            }
+            utils::reduce(&mut sw.duration, 1);
+            if sw.duration == 0 {
+                sw.sw_type = SWType::Pending;
+            }
+            sw.cd -= 1;
+            if sw.cd == 0 {
+                self.our.sw = None;
+            }
+        }
+        if let Some(sw) = &mut self.their.sw {
+            if sw.sw_type == SWType::Nuclear {
+                Self::radiation(&mut self.troop, &mut self.owner, &mut self.cell, sw.pos);
+            }
+            utils::reduce(&mut sw.duration, 1);
+            if sw.duration == 0 {
+                sw.sw_type = SWType::Pending;
+            }
+            sw.cd -= 1;
+            if sw.cd == 0 {
+                self.their.sw = None;
+            }
+        }
         self.turn += 1;
+    }
+
+    fn detailed_check(&self, gs:&GameState) -> bool {
+        let mut ret=true;
+        if !(self.cell == gs.cell && self.troop==gs.troop && self.owner==gs.owner) {
+            eprintln!("Cell {} | Troop {} | Owner {}", self.cell == gs.cell,self.troop==gs.troop, self.owner==gs.owner);
+            ret=false;
+        }
+        if self.our!=gs.our {
+            eprintln!("Our side unmatch");
+            ret=false;
+        }
+        if self.their != gs.their {
+            eprintln!("Their side unmatch");
+            ret=false;
+        }
+        let n=self.generals.len();
+        let m = gs.generals.len();
+        if n!=m {
+            eprintln!("Generals length unmatch!");
+        }
+        for i in 0..n {
+            let gg = &gs.generals[i];
+            // because replay file doesn't have the rest_shift info, we need to do tricky things here
+            let ng = General {
+                skills: gg.skills,
+                attr: gg.attr,
+                pos: gg.pos,
+                attitude: gg.attitude,
+                general_type: gg.general_type,
+                alive: gg.alive,
+                id: gg.id,
+                rest_shift: self.generals[i].rest_shift,
+            };
+            if self.generals[i] != ng {
+                eprintln!("General diff {} attitude {} {} dashcd {} {}", i, 
+                    self.generals[i].attitude, gs.generals[i].attitude,
+                    self.generals[i].skills.dash.cd, gs.generals[i].skills.dash.cd
+                );
+                ret=false;
+            }
+        }
+        if self.active_player_seat!=gs.active_player_seat {
+            eprintln!("Active player unmatch {} {}", self.active_player_seat, gs.active_player_seat);
+            ret=false;
+        }
+        if self.turn != gs.turn {
+            eprintln!("Turn unmatch {} {}", self.turn, gs.turn);
+        }
+        return ret;
+    }
+
+    pub fn check_with_replay_file(&self, gs: &GameState) {
+        match self.detailed_check(gs) {
+            true => {
+
+            }
+            false => {
+                gs.print();
+                self.print();
+                eprintln!("{}", "Error: Simulated unmatch with Replay File".bold().red());
+            }
+        }
     }
 
 }

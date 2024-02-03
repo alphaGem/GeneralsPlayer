@@ -29,7 +29,7 @@ impl gamestate::GameState {
      * - their general skill: magic
      * - superweapon
      */
-    pub fn get_def(&self, pos: Position) -> f32 {
+    fn get_def(&self, pos: Position) -> f32 {
         let mut def = 1.0f32;
         // general effect
         let id = self.cell[pos.x as usize][pos.y as usize];
@@ -72,7 +72,7 @@ impl gamestate::GameState {
         }
         // sw effect
         if let Some(sw) = &self.our.sw {
-            if sw.sw_type == SWType::Boost {
+            if sw.sw_type == SWType::Boost && sw.in_range(pos) {
                 def *= 3.0; // the sw is really strong!
             }
         }
@@ -86,7 +86,7 @@ impl gamestate::GameState {
      * - their general skill: magic
      * - superweapon
      */
-    pub fn get_atk(&self, pos: Position) -> f32 {
+    fn get_atk(&self, pos: Position) -> f32 {
         let mut atk = 1.0f32;
         // general skill effect
         for general in &self.generals {
@@ -152,6 +152,23 @@ impl gamestate::GameState {
         return force > 0.0;
     }
 
+    fn check_movability(&self, pos: Position) -> bool {
+        if let Some(sw) = &self.our.sw {
+            if sw.sw_type == SWType::Teleport && sw.pos == pos {
+                return false;
+            }
+            if sw.sw_type == SWType::Freeze && sw.in_range(pos){
+                return false;
+            }
+        }
+        if let Some(sw) = &self.their.sw {
+            if sw.sw_type == SWType::Freeze && sw.in_range(pos){
+                return false;
+            }
+        }
+        return true;
+    }
+
     // normal attack / movement
     pub fn march(&mut self, src_pos: Position, dst_pos: Position, num: i16) {
         if !self.check_march(src_pos, dst_pos, num) {panic!("Invalid march!")}
@@ -159,6 +176,7 @@ impl gamestate::GameState {
     }
     pub fn check_march(&self, src_pos: Position, dst_pos: Position, num: i16) -> bool {
         CHECK!(self.owner[src_pos.x as usize][src_pos.y as usize]==Attitude::Friendly);
+        CHECK!(self.check_movability(src_pos));
         CHECK!(num>0);
         CHECK!(self.troop[src_pos.x as usize][src_pos.y as usize]-num>=1);
         CHECK!(utils::manhattan_distance(src_pos, dst_pos)<=1);
@@ -177,6 +195,8 @@ impl gamestate::GameState {
 
     pub fn check_shift(&self, general_id: GeneralId, dst_pos: Position) -> bool {
         let general = &self.generals[general_id.0 as usize];
+        CHECK!(self.check_movability(general.pos));
+        CHECK!(general.general_type != GeneralType::Mine);
         let distance;
         if self.our.tech_tree.raft == 1 {
             distance = manhattan_distance(general.pos, dst_pos);
@@ -186,12 +206,17 @@ impl gamestate::GameState {
                 distance = map::DIST[general.pos.x as usize][general.pos.y as usize][dst_pos.x as usize][dst_pos.y as usize];
             }
         }
+        eprintln!("dis check {} {}", distance, general.rest_shift);
+        CHECK!(distance > 0);
+        CHECK!(distance <= general.rest_shift);
         return true;
     }
 
     fn common_check(&self, general: &General, skill_type: SkillType, maybe_dst_pos: Option<Position>) -> bool {
         // General should be friendly
         CHECK!(general.attitude == Attitude::Friendly);
+        CHECK!(general.general_type != GeneralType::Mine);
+        CHECK!(self.check_movability(general.pos));
         CHECK!(general.alive);
         if let Some(dst_pos) = maybe_dst_pos {
             CHECK!(general.in_range(dst_pos))
@@ -288,39 +313,100 @@ impl gamestate::GameState {
      * Nuclear Bomb
      */
     pub fn nuclear(&mut self, pos: Position) {
-
+        assert!(self.check_nuclear(pos));
+        let xmin = cmp::max(pos.x-1, 0);
+        let xmax = cmp::min(pos.x+1, 15);
+        let ymin = cmp::max(pos.y-1, 0);
+        let ymax = cmp::min(pos.y+1, 15);
+        let omp = self.get_main(Attitude::Friendly).unwrap().pos;
+        let tmp = self.get_main(Attitude::Hostile).unwrap().pos;
+        for x in xmin..xmax+1 {
+            for y in ymin..ymax+1 {
+                let p = Position{x,y};
+                if p == omp || p == tmp {
+                    self.troop[x as usize][y as usize] /= 2;
+                }
+                else {
+                    self.troop[x as usize][y as usize] = 0;
+                    self.owner[x as usize][y as usize] = Attitude::Neutral;
+                    let gid = self.cell[x as usize][y as usize];
+                    if gid != general::NOTHING {
+                        self.generals[gid.0 as usize].alive = false;
+                        self.cell[x as usize][y as usize] = general::NOTHING;
+                    }
+                }
+            }
+        }
+        self.our.sw = Some(SuperWeapon {
+            sw_type: SWType::Nuclear,
+            pos,
+            duration: 5,
+            cd: 50,
+        });
     }
-    pub fn check_nuclear(&self, pos: Position) {
-
+    pub fn check_nuclear(&self, _pos: Position) -> bool {
+        CHECK!(self.our.sw == None);
+        CHECK!(self.our.tech_tree.relativity>0);
+        return true;
     }
 
     /*
      * Boost
      */
     pub fn boost(&mut self, pos: Position) {
-
+        assert!(self.check_boost(pos));
+        self.our.sw = Some(SuperWeapon {
+            sw_type: SWType::Boost, 
+            pos,
+            duration: 5,
+            cd: 50
+        });
     }
-    pub fn check_boost(&self, pos: Position) {
-
+    pub fn check_boost(&self, _pos: Position) -> bool {
+        CHECK!(self.our.sw == None);
+        CHECK!(self.our.tech_tree.relativity>0);
+        return true;
     }
 
     /*
      * Teleport
      */
     pub fn teleport(&mut self, pos: Position, src_pos: Position) {
-
+        assert!(self.check_teleport(pos, src_pos));
+        let num = self.troop[src_pos.x as usize][src_pos.y as usize]-1;
+        self.troop[pos.x as usize][pos.y as usize] = num;
+        self.owner[pos.x as usize][pos.y as usize] = Attitude::Friendly;
+        self.our.sw = Some(SuperWeapon {
+            sw_type: SWType::Teleport,
+            pos,
+            duration: 2,
+            cd: 50,
+        });
     }
-    pub fn check_teleport(&mut self, pos: Position, src_pos: Position) {
-
+    pub fn check_teleport(&mut self, pos: Position, src_pos: Position) -> bool {
+        CHECK!(self.our.sw == None);
+        CHECK!(self.our.tech_tree.relativity>0);
+        CHECK!(self.owner[src_pos.x as usize][src_pos.y as usize]==Attitude::Friendly);
+        CHECK!(self.cell[pos.x as usize][pos.y as usize]==general::NOTHING);
+        CHECK!(self.troop[src_pos.x as usize][src_pos.y as usize]>1);
+        return true;
     }
 
     /*
      * Freeze
      */
     pub fn freeze(&mut self, pos: Position) {
-
+        assert!(self.check_freeze(pos));
+        self.our.sw = Some(SuperWeapon {
+            sw_type: SWType::Freeze,
+            pos,
+            duration: 10,
+            cd: 50,
+        })
     }
-    pub fn check_freeze(&mut self, pos: Position, src_pos: Position) {
-
+    pub fn check_freeze(&mut self, _pos: Position) -> bool {
+        CHECK!(self.our.sw == None);
+        CHECK!(self.our.tech_tree.relativity>0);
+        return true;
     }
 }

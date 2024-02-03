@@ -73,6 +73,7 @@ pub struct General {
     pub general_type: GeneralType,
     pub alive: bool,
     pub id: GeneralId,
+    pub rest_shift: i8,
 }
 
 

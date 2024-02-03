@@ -57,6 +57,7 @@ pub use general::{
 pub mod gamestate;
 pub use gamestate::{
     SWType,
+    SuperWeapon,
     TechType,
     TechTree,
     Side,
@@ -71,3 +72,6 @@ pub use map::Terrain;
 pub mod colorize;
 
 pub mod player;
+
+pub use std;
+pub use std::cmp;

@@ -37,3 +37,7 @@ pub fn manhattan_distance(pos1: Position, pos2: Position) -> i8 {
 pub fn chebyshev_distance(pos1: Position, pos2: Position) -> i8 {
     return max((pos1.x-pos2.x).abs(),(pos1.y-pos2.y).abs());
 }
+
+pub fn reduce<T: Copy + Ord + std::ops::Sub<Output=T> + std::ops::Add<Output=T> >(x: &mut T, num: T) {
+    *x = std::cmp::max(*x, num)-num;
+}

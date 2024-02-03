@@ -58,7 +58,11 @@ pub fn init_distance() {
     }
 }
 
-pub fn update_state(old_state: &GameState, parsed: &json::JsonValue) -> GameState {
+
+/// Warning: the GameState returned by this function has `rest_shift=0` for all generals
+/// and `rest_march=2` for the game state, because they are not specified in the replay 
+/// file.
+pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue) -> GameState {
     let os = match parsed["Player"].as_i32().unwrap() {
         0 => 0,
         1 => 1,
@@ -139,11 +143,31 @@ pub fn update_state(old_state: &GameState, parsed: &json::JsonValue) -> GameStat
             general_type: gtype,
             alive: general["Alive"].as_i32().unwrap()!=0,
             id,
+            rest_shift: 0,
         });
         cell[pos[0]][pos[1]] = GeneralId(general["Id"].as_u8().unwrap());
     }
-    let our_tech_tree = TechTree::default();
-    let their_tech_tree = TechTree::default();
+    let mut parsed_tech = parsed["Tech_level"].members();
+    let our_tech_tree;
+    let their_tech_tree;
+
+    let o = utils::json_to_vec(parsed_tech.next().unwrap());
+    our_tech_tree = TechTree {
+        motor: o[0] as i8,
+        raft: o[1] as i8,
+        track: o[2] as i8,
+        relativity: o[3] as i8,
+    };
+    drop(o);
+    
+    let o = utils::json_to_vec(parsed_tech.next().unwrap());
+    their_tech_tree = TechTree {
+        motor: o[0] as i8,
+        raft: o[1] as i8,
+        track: o[2] as i8,
+        relativity: o[3] as i8,
+    };
+    drop(o);
     
     generals.sort_by(|a,b| a.id.0.cmp(&b.id.0));
     let r = match parsed["Player"].as_i8().unwrap() {
@@ -169,6 +193,7 @@ pub fn update_state(old_state: &GameState, parsed: &json::JsonValue) -> GameStat
         },
         active_player_seat: os,
         turn: r,
+        rest_march: 2,
     }
 }
 
@@ -208,7 +233,7 @@ pub fn read_init(is_player_mode: bool, filename: Option<&String>) -> GameState {
         our_seat = parsed["Player"].as_i8().unwrap();
         their_seat = 1-our_seat;
     }
-    return update_state(
+    return update_state_by_json(
         &GameState {
             owner: [[Attitude::Neutral;16];15],
             troop: [[0 as i16;16];15],
@@ -228,6 +253,7 @@ pub fn read_init(is_player_mode: bool, filename: Option<&String>) -> GameState {
             },
             active_player_seat: 0,
             turn: 0,
+            rest_march: 2,
         },
         &parsed
     );

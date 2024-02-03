@@ -20,14 +20,14 @@ impl fmt::Display for Attitude {
 // Super Weapons
 #[derive(PartialEq, Clone, Copy)]
 pub enum SWType {
-    Nuclear, Boost, Teleport, Freeze,
+    Nuclear, Boost, Teleport, Freeze, Pending,
 }
 #[derive(Clone, PartialEq)]
 pub struct SuperWeapon {
     pub sw_type: SWType,
     pub pos: Position,
-    pub duration: i8,
-    pub cd: i8,
+    pub duration: u8,
+    pub cd: u8,
 }
 impl SuperWeapon {
     pub fn in_range(&self, pos: Position) -> bool {
@@ -40,12 +40,22 @@ impl SuperWeapon {
 pub enum TechType {
     Motor, Raft, Track, Relativity,
 }
-#[derive(PartialEq, Clone, Copy, Default)]
+#[derive(PartialEq, Clone, Copy)]
 pub struct TechTree {
     pub motor: i8,
     pub raft: i8,
     pub track: i8,
     pub relativity: i8,
+}
+impl Default for TechTree {
+    fn default() -> Self {
+        TechTree {
+            motor:1,
+            raft:0,
+            track:0,
+            relativity:0,
+        }
+    }
 }
 
 
@@ -58,7 +68,7 @@ pub struct Side {
     pub seat: i8,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct GameState {
     pub owner: [[Attitude; 16]; 15],
     pub troop: [[i16; 16]; 15],
@@ -68,4 +78,5 @@ pub struct GameState {
     pub their: Side,
     pub active_player_seat: i8,
     pub turn: i16,
+    pub rest_march: i8,
 }
