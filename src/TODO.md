@@ -22,8 +22,8 @@
 
 ### Terrain Check
 
-- [ ] Swamp
-- [ ] Sand
+- [x] Swamp
+- [x] Sand
 
 ### Implement of simple AI for checking
 

@@ -239,7 +239,12 @@ impl GameState {
                     }
                 }
                 unsafe {
-                    if map::MAP[i][j] == Terrain::Sand {
+                    let track_not_unlocked = match self.owner[i][j] {
+                        Attitude::Friendly => self.our.tech_tree.track==0,
+                        Attitude::Hostile => self.their.tech_tree.track==0,
+                        Attitude::Neutral => false,
+                    };
+                    if track_not_unlocked && map::MAP[i][j] == Terrain::Sand {
                         Self::attrition(
                             &mut self.troop[i][j],
                             &mut self.owner[i][j],

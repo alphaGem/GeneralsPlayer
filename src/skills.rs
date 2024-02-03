@@ -152,7 +152,7 @@ impl gamestate::GameState {
         return force > 0.0;
     }
 
-    fn check_movability(&self, pos: Position) -> bool {
+    fn check_unfrozen(&self, pos: Position) -> bool {
         if let Some(sw) = &self.our.sw {
             if sw.sw_type == SWType::Teleport && sw.pos == pos {
                 return false;
@@ -169,6 +169,16 @@ impl gamestate::GameState {
         return true;
     }
 
+    fn check_movability(&self, src_pos: Position, dst_pos: Position) -> bool {
+        CHECK!(self.check_unfrozen(src_pos));
+        unsafe {
+            if map::MAP[dst_pos.x as usize][dst_pos.y as usize] == Terrain::Swamp {
+                CHECK!(self.our.tech_tree.raft==1);
+            }
+        }
+        return true;
+    }
+
     // normal attack / movement
     pub fn march(&mut self, src_pos: Position, dst_pos: Position, num: i16) {
         if !self.check_march(src_pos, dst_pos, num) {panic!("Invalid march!")}
@@ -176,7 +186,7 @@ impl gamestate::GameState {
     }
     pub fn check_march(&self, src_pos: Position, dst_pos: Position, num: i16) -> bool {
         CHECK!(self.owner[src_pos.x as usize][src_pos.y as usize]==Attitude::Friendly);
-        CHECK!(self.check_movability(src_pos));
+        CHECK!(self.check_movability(src_pos, dst_pos));
         CHECK!(num>0);
         CHECK!(self.troop[src_pos.x as usize][src_pos.y as usize]-num>=1);
         CHECK!(utils::manhattan_distance(src_pos, dst_pos)<=1);
@@ -195,7 +205,7 @@ impl gamestate::GameState {
 
     pub fn check_shift(&self, general_id: GeneralId, dst_pos: Position) -> bool {
         let general = &self.generals[general_id.0 as usize];
-        CHECK!(self.check_movability(general.pos));
+        CHECK!(self.check_movability(general.pos, dst_pos));
         CHECK!(general.general_type != GeneralType::Mine);
         let distance;
         if self.our.tech_tree.raft == 1 {
@@ -216,10 +226,10 @@ impl gamestate::GameState {
         // General should be friendly
         CHECK!(general.attitude == Attitude::Friendly);
         CHECK!(general.general_type != GeneralType::Mine);
-        CHECK!(self.check_movability(general.pos));
+        CHECK!(self.check_unfrozen(general.pos));
         CHECK!(general.alive);
         if let Some(dst_pos) = maybe_dst_pos {
-            CHECK!(general.in_range(dst_pos))
+            CHECK!(general.in_range(dst_pos));
         }
         match skill_type {
             SkillType::Dash => {
@@ -269,6 +279,7 @@ impl gamestate::GameState {
     pub fn check_dash(&self, general_id: GeneralId, dst_pos: Position) -> bool{
         let general = &self.generals[general_id.0 as usize];
         CHECK!(self.common_check(general, SkillType::Dash, Some(dst_pos)));
+        CHECK!(self.check_movability(general.pos, dst_pos));
         CHECK!(self.cell[dst_pos.x as usize][dst_pos.y as usize] == general::NOTHING);
         CHECK!(self.can_conquer(general.pos, dst_pos));
         return true;
