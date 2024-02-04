@@ -95,6 +95,11 @@ fn get_next_move(gs: &GameState) -> Op {
         if 0<=np.x && np.x<=14 && 0<=np.y && np.y <= 14 {
             for g in &gs.generals {
                 if g.general_type == GeneralType::Mine && g.attitude == Attitude::Neutral {
+                    unsafe {
+                        if map::MAP[g.pos.x as usize][g.pos.y as usize]==Terrain::Swamp {
+                            if gs.our.tech_tree.raft == 0 {continue;}
+                        }
+                    }
                     if get_map_distance(g.pos, np, &gs.our)<best_dist {
                         best_dist = get_map_distance(g.pos, np, &gs.our);
                         best_d = d;
@@ -265,7 +270,7 @@ pub fn sample_ai(init_gs: GameState) -> GameState {
     let mut ops = vec![];
     loop {
         let op;
-        if gs.turn <= 100 {
+        if gs.turn <= 200 {
             op = get_next_move(&gs);
         }
         else {

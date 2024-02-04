@@ -190,18 +190,13 @@ pub fn send_op(ops: Vec::<Op>) {
     }
     let n = output.len() as i32;
     let be_bytes = n.to_be_bytes();
-    let head = format!("{}{}{}{}",
-        char::from(be_bytes[0]),
-        char::from(be_bytes[1]),
-        char::from(be_bytes[2]),
-        char::from(be_bytes[3])
-    );
-    eprintln!("{}", output);
+    eprintln!("[{}]\n{}", n, output);
     match io::stderr().flush() {
         Ok(()) => {}
         _ => {panic!("Failed to write to stderr?")}
     };
-    print!("{}{}", head, output);
+    io::stdout().write_all(&be_bytes).unwrap();
+    print!("{}",output);
     match io::stdout().flush() {
         Ok(()) => {}
         _ => {panic!("Failed to write to stdout?")}

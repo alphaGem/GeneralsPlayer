@@ -324,16 +324,11 @@ impl gamestate::GameState {
     // - can conquer
     pub fn check_dash(&self, general_id: GeneralId, dst_pos: Position) -> bool{
         let general = &self.generals[general_id.0 as usize];
-        eprintln!("Check dash");
         CHECK!(self.common_check(general, SkillType::Dash, Some(dst_pos)));
-        eprintln!("Common OK");
-
         CHECK!(self.check_movability(general.pos, dst_pos));
-        eprintln!("Mvblt OK");
         CHECK!(self.cell[dst_pos.x as usize][dst_pos.y as usize] == general::NOTHING);
-        eprintln!("Target empty OK");
+        CHECK!(self.troop[dst_pos.x as usize][dst_pos.y as usize] >= 2);
         CHECK!(self.can_conquer(general.pos, dst_pos));
-        eprintln!("Can conquer OK");
         return true;
     }
 

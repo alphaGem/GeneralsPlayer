@@ -17,13 +17,14 @@ pub enum Terrain {
 // Map for the interesting game!
 pub static mut MAP:[[Terrain;16];15] = [[Terrain::Plain;16];15];
 // Distance when raft technology is unlocked
-pub static mut DIST:[[[[i8;16];16];16];15] = [[[[15;16];16];16];15];
+pub static mut DIST:[[[[i8;16];16];16];15] = [[[[63;16];16];16];15];
 
 fn bfs(pos: Position) {
     let mut vis = [[false;15];15];
     let mut queue = vec![pos];
     let mut head = 0;
     let mut tail = 1;
+    unsafe {if MAP[pos.x as usize][pos.y as usize]==Terrain::Swamp {return;}}
     const DX:[i8;4] = [-1,0,1,0];
     const DY:[i8;4] = [0,-1,0,1];
     unsafe {DIST[pos.x as usize][pos.y as usize][pos.x as usize][pos.y as usize]=0;}
