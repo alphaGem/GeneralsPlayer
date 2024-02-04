@@ -14,13 +14,11 @@ pub struct GeneralId(pub u8);
 #[derive(Clone, Copy, PartialEq)]
 pub struct Skill {
     pub cd: i8,
-    pub duration: i8,
 }
 impl Default for Skill {
     fn default() -> Self {
         Skill {
             cd: 0i8,
-            duration: 0i8,
         }
     }
 }

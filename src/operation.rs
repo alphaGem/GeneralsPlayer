@@ -17,8 +17,8 @@ pub enum Op {
     End,
 }
 
-impl From<Vec<usize>> for Op {
-    fn from(v: Vec<usize>) -> Op {
+impl From<Vec<i32>> for Op {
+    fn from(v: Vec<i32>) -> Op {
         match v[0] {
             1 => {
                 Op::March(
@@ -191,6 +191,11 @@ pub fn send_op(ops: Vec::<Op>) {
     let n = output.len() as i32;
     let be_bytes = n.to_be_bytes();
     let head = String::from_utf8_lossy(&be_bytes);
+    eprintln!("{}", output);
+    match io::stderr().flush() {
+        Ok(()) => {}
+        _ => {panic!("Failed to write to stderr?")}
+    };
     print!("{}{}", head, output);
     match io::stdout().flush() {
         Ok(()) => {}

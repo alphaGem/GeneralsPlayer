@@ -85,21 +85,37 @@ impl Colorize for str {
 impl GameState {
     pub fn print(&self) {
         let title = format!("Round {}", self.turn).bold().underline();
+        let osw;
+        if let Some(sw) = &self.our.sw {
+            osw = format!("{}", sw);
+        }
+        else {
+            osw = "Nothing".to_string();
+        }
         let oc = format!(
-            "Our Coin {} | Tech motor={} Raft={} Track={} Rela.={}",
+            "Our Coin {} | Tech motor={} Raft={} Track={} Rela.={} | SW = {}",
             self.our.coin,
             self.our.tech_tree.motor,
             self.our.tech_tree.raft,
             self.our.tech_tree.track,
-            self.our.tech_tree.relativity
+            self.our.tech_tree.relativity,
+            osw
         ).friendly_fg();
+        let tsw;
+        if let Some(sw) = &self.their.sw {
+            tsw = format!("{}", sw);
+        }
+        else {
+            tsw = "Nothing".to_string();
+        }
         let tc = format!(
-            "Their Coin {} | Tech motor={} Raft={} Track={} Rela.={}",
+            "Their Coin {} | Tech motor={} Raft={} Track={} Rela.={} | SW = {}",
             self.their.coin,
             self.their.tech_tree.motor,
             self.their.tech_tree.raft,
             self.their.tech_tree.track,
-            self.their.tech_tree.relativity
+            self.their.tech_tree.relativity,
+            tsw
         ).hostile_fg();
         eprintln!("{}", title);
         eprintln!("{}", oc);
@@ -116,7 +132,7 @@ impl GameState {
                 let troop_str;
                 let general_str;
                 if troop >= 100 {
-                    troop_str = "XX".to_string();
+                    troop_str = format!("{}",troop);
                 }
                 else if troop > 0 || self.cell[i][j] != general::NOTHING || self.owner[i][j] != Attitude::Neutral{
                     troop_str = format!("{:02}", troop);

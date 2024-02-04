@@ -29,6 +29,18 @@ pub struct SuperWeapon {
     pub duration: u8,
     pub cd: u8,
 }
+impl fmt::Display for SuperWeapon {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.sw_type {
+            SWType::Nuclear => write!(f, "[Nuclear] {} {} {}",self.pos,self.duration,self.cd),
+            SWType::Boost => write!(f, "[Boost] {} {} {}",self.pos,self.duration,self.cd),
+            SWType::Teleport => write!(f, "[Tele] {} {} {}",self.pos,self.duration,self.cd),
+            SWType::Freeze => write!(f, "[Freeze] {} {} {}",self.pos,self.duration,self.cd),
+            SWType::Pending => write!(f, "[Pending] {} {} {}",self.pos,self.duration,self.cd)
+        }
+        
+    }
+}
 impl SuperWeapon {
     pub fn in_range(&self, pos: Position) -> bool {
         return utils::chebyshev_distance(self.pos, pos) <= 1;

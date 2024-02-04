@@ -94,8 +94,11 @@ impl GameState {
         self.cell[pos.x as usize][pos.y as usize] = id;
     }
     pub fn check_call_general(&self, pos: Position) -> bool {
+        eprintln!("Check call {} {}", pos, self.owner[pos.x as usize][pos.y as usize]);
         CHECK!(self.our.coin >= 50);
         CHECK!(self.cell[pos.x as usize][pos.y as usize] == general::NOTHING);
+        CHECK!(self.owner[pos.x as usize][pos.y as usize] == Attitude::Friendly);
+        CHECK!(self.check_unfrozen(pos));
         return true;
     }
 
@@ -154,6 +157,12 @@ impl GameState {
             }
             TechType::Relativity => {
                 self.our.tech_tree.relativity += 1;
+                self.our.sw = Some(SuperWeapon {
+                    sw_type: SWType::Pending,
+                    pos: Position{x:0,y:0},
+                    duration: 0,
+                    cd: 10,
+                })
             }
         }
     }
@@ -208,7 +217,7 @@ impl GameState {
         }
     }
 
-    fn attrition(troop: &mut i16, owner: &mut Attitude, cell: GeneralId, num: i16) {
+    pub fn attrition(troop: &mut i16, owner: &mut Attitude, cell: GeneralId, num: i16) {
         utils::reduce(troop, num);
         // Place become neutral if attrition killed all units on it
         if *troop == 0 && cell == general::NOTHING {
@@ -257,7 +266,7 @@ impl GameState {
                             self.cell[i][j],
                             1
                         );
-                        eprintln!("attrition {} {} {}",i,j,self.owner[i][j]);
+                        // eprintln!("attrition {} {} {}",i,j,self.owner[i][j]);
                     }
                 }
             }
@@ -303,6 +312,7 @@ impl GameState {
             utils::reduce(&mut sw.duration, 1);
             if sw.duration == 0 {
                 sw.sw_type = SWType::Pending;
+                sw.pos = Position{x:0,y:0};
             }
             sw.cd -= 1;
             if sw.cd == 0 {
@@ -316,6 +326,7 @@ impl GameState {
             utils::reduce(&mut sw.duration, 1);
             if sw.duration == 0 {
                 sw.sw_type = SWType::Pending;
+                sw.pos = Position{x:0,y:0};
             }
             sw.cd -= 1;
             if sw.cd == 0 {
@@ -358,9 +369,14 @@ impl GameState {
                 rest_shift: self.generals[i].rest_shift,
             };
             if self.generals[i] != ng {
-                eprintln!("General diff {} attitude {} {} dashcd {} {}", i, 
+                eprintln!("General diff {} attitude {} {} dashcd {} {} killcd {} {}, buff cd {}/{} {}/{} {}/{}",
+                    i, 
                     self.generals[i].attitude, gs.generals[i].attitude,
-                    self.generals[i].skills.dash.cd, gs.generals[i].skills.dash.cd
+                    self.generals[i].skills.dash.cd, gs.generals[i].skills.dash.cd,
+                    self.generals[i].skills.kill.cd, gs.generals[i].skills.kill.cd,
+                    self.generals[i].skills.atk.cd, gs.generals[i].skills.atk.cd,
+                    self.generals[i].skills.def.cd, gs.generals[i].skills.def.cd,
+                    self.generals[i].skills.magic.cd, gs.generals[i].skills.magic.cd,
                 );
                 ret=false;
             }

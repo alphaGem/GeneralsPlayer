@@ -59,12 +59,12 @@ impl gamestate::GameState {
         for general in &self.generals {
             if !general.in_range(pos) {continue;}
             if general.attitude == defender_attitude {
-                if general.skills.def.duration > 0 {
+                if general.skills.def.cd > 0 {
                     def *= 1.5;
                 }
             }
             else {
-                if general.skills.magic.duration > 0 {
+                if general.skills.magic.cd > 0 {
                     def *= 0.75;
                 }
             }
@@ -75,6 +75,7 @@ impl gamestate::GameState {
                 def *= 3.0; // the sw is really strong!
             }
         }
+        eprintln!("def {}", def);
         return def;
     }
 
@@ -91,16 +92,14 @@ impl gamestate::GameState {
         for general in &self.generals {
             if !general.in_range(pos) {continue;}
             let attacker_attitude = self.owner[pos.x as usize][pos.y as usize];
-            for general in &self.generals {
-                if general.attitude == attacker_attitude {
-                    if general.skills.atk.duration > 0 {
-                        atk *= 1.5;
-                    }
+            if general.attitude == attacker_attitude {
+                if general.skills.atk.cd > 0 {
+                    atk *= 1.5;
                 }
-                else {
-                    if general.skills.magic.duration > 0 {
-                        atk *= 0.75;
-                    }
+            }
+            else {
+                if general.skills.magic.cd > 0 {
+                    atk *= 0.75;
                 }
             }
         }
@@ -110,6 +109,7 @@ impl gamestate::GameState {
                 atk *= 3.0; // the sw is really strong!
             }
         }
+        eprintln!("atk {}", atk);
         return atk;
     }
 
@@ -125,6 +125,7 @@ impl gamestate::GameState {
         let atk_troop = num as f32;
         let def_troop = self.troop[dst_pos.x as usize][dst_pos.y as usize] as f32;
         let force = atk*atk_troop-def*def_troop;
+        eprintln!("atk {} * atkt {} - def {} & deft {} = {}", atk, atk_troop, def, def_troop, force);
         self.troop[src_pos.x as usize][src_pos.y as usize] -= num;
         if force > 0.0 { // success
             let remaining = (force/atk).ceil() as i16;
@@ -143,6 +144,7 @@ impl gamestate::GameState {
     }
 
     fn can_conquer(&self, src_pos: Position, dst_pos: Position) -> bool {
+        if self.owner[dst_pos.x as usize][dst_pos.y as usize]==Attitude::Friendly {return true;}
         let atk = self.get_atk(src_pos);
         let def = self.get_def(dst_pos);
         let atk_troop = self.troop[src_pos.x as usize][src_pos.y as usize] as f32;
@@ -151,7 +153,7 @@ impl gamestate::GameState {
         return force > 0.0;
     }
 
-    fn check_unfrozen(&self, pos: Position) -> bool {
+    pub fn check_unfrozen(&self, pos: Position) -> bool {
         if let Some(sw) = &self.our.sw {
             if sw.sw_type == SWType::Teleport && sw.pos == pos {
                 return false;
@@ -307,9 +309,8 @@ impl gamestate::GameState {
      */
     pub fn dash(&mut self, general_id: GeneralId, dst_pos: Position) {
         if !self.check_dash(general_id, dst_pos) {panic!("Invalid dash");}
-        let general = &mut self.generals[general_id.0 as usize];
         self.our.coin -= DASH_COST;
-        general.skills.dash.cd = DASH_CD;
+        let general = &mut self.generals[general_id.0 as usize];
         let pos = general.pos;
         self.attack(pos, dst_pos, self.troop[pos.x as usize][pos.y as usize]-1);
         let general = &mut self.generals[general_id.0 as usize];
@@ -324,10 +325,16 @@ impl gamestate::GameState {
     // - can conquer
     pub fn check_dash(&self, general_id: GeneralId, dst_pos: Position) -> bool{
         let general = &self.generals[general_id.0 as usize];
+        eprintln!("Check dash");
         CHECK!(self.common_check(general, SkillType::Dash, Some(dst_pos)));
+        eprintln!("Common OK");
+
         CHECK!(self.check_movability(general.pos, dst_pos));
+        eprintln!("Mvblt OK");
         CHECK!(self.cell[dst_pos.x as usize][dst_pos.y as usize] == general::NOTHING);
+        eprintln!("Target empty OK");
         CHECK!(self.can_conquer(general.pos, dst_pos));
+        eprintln!("Can conquer OK");
         return true;
     }
 
@@ -339,6 +346,12 @@ impl gamestate::GameState {
         let general = &mut self.generals[general_id.0 as usize];
         self.our.coin -= KILL_COST;
         general.skills.kill.cd = KILL_CD;
+        Self::attrition(
+            &mut self.troop[dst_pos.x as usize][dst_pos.y as usize],
+            &mut self.owner[dst_pos.x as usize][dst_pos.y as usize],
+            self.cell[dst_pos.x as usize][dst_pos.y as usize],
+            20
+        );
     }
 
     pub fn check_kill(&self, general_id: GeneralId, dst_pos: Position) -> bool {
@@ -440,7 +453,7 @@ impl gamestate::GameState {
             cd: 50,
         });
     }
-    pub fn check_teleport(&mut self, pos: Position, src_pos: Position) -> bool {
+    pub fn check_teleport(&self, pos: Position, src_pos: Position) -> bool {
         CHECK!(self.our.sw == None);
         CHECK!(self.our.tech_tree.relativity>0);
         CHECK!(self.owner[src_pos.x as usize][src_pos.y as usize]==Attitude::Friendly);
@@ -461,7 +474,7 @@ impl gamestate::GameState {
             cd: 50,
         })
     }
-    pub fn check_freeze(&mut self, _pos: Position) -> bool {
+    pub fn check_freeze(&self, _pos: Position) -> bool {
         CHECK!(self.our.sw == None);
         CHECK!(self.our.tech_tree.relativity>0);
         return true;

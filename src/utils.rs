@@ -1,11 +1,12 @@
 extern crate json;
 use std::cmp::max;
 use std::fmt;
+use crate::map;
 
-pub fn json_to_vec(j:&json::JsonValue) -> Vec::<usize> {
+pub fn json_to_vec(j:&json::JsonValue) -> Vec::<i32> {
     let mut v = vec![];
     for i in j.members() {
-        v.push(i.as_usize().unwrap());
+        v.push(i.as_i32().unwrap());
     }
     return v;
 }
@@ -47,4 +48,29 @@ pub fn chebyshev_distance(pos1: Position, pos2: Position) -> i8 {
 
 pub fn reduce<T: Copy + Ord + std::ops::Sub<Output=T> + std::ops::Add<Output=T> >(x: &mut T, num: T) {
     *x = std::cmp::max(*x, num)-num;
+}
+
+static mut SEED:i64=523;
+const MOD:i64=998244353;
+
+pub fn srand() {
+    unsafe {
+        for i in 0..15 {
+            for j in 0..15 {
+                match map::MAP[i][j] {
+                    map::Terrain::Plain => {SEED = (SEED * 1048583 + 2333347) % MOD;}
+                    map::Terrain::Sand => {SEED = (SEED * 2333347 + 1048583) % MOD;}
+                    map::Terrain::Swamp => {SEED = (SEED * 6666679 + 1048583) % MOD;}
+                }
+            }
+        }
+    }
+}
+
+/// returns a random number in [0,n), n<1e6
+pub fn rand(n:i32) -> i32 {
+    unsafe {
+        SEED = (SEED * 19260817 + 6666679) % MOD;
+        return (SEED as i32)%n;
+    }
 }

@@ -98,17 +98,17 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue, for
         let trp = iter.next().unwrap().as_i32().unwrap();
         match plr {
             -1 => {
-                owner[pos[0]][pos[1]] = Attitude::Neutral;
+                owner[pos[0] as usize][pos[1] as usize] = Attitude::Neutral;
             }
             0|1 => {
                 if plr as i8==os
-                    {owner[pos[0]][pos[1]] = Attitude::Friendly;}
+                    {owner[pos[0] as usize][pos[1] as usize] = Attitude::Friendly;}
                 else
-                    {owner[pos[0]][pos[1]] = Attitude::Hostile;}
+                    {owner[pos[0] as usize][pos[1] as usize] = Attitude::Hostile;}
             }
             _ => {panic!();}
         }
-        troop[pos[0]][pos[1]] = trp as i16;
+        troop[pos[0] as usize][pos[1] as usize] = trp as i16;
     }
     let mut generals = vec![];
     for general in parsed["Generals"].members() {
@@ -136,12 +136,15 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue, for
         let cd = &mut general["Skill_cd"].members();
         let dur = &mut general["Skill_rest"].members();
         let skills = SkillSet {
-            dash: Skill {cd: cd.next().unwrap().as_i8().unwrap(), duration: 0},
-            kill: Skill {cd: cd.next().unwrap().as_i8().unwrap(), duration: 0},
-            atk: Skill {cd: cd.next().unwrap().as_i8().unwrap(), duration: dur.next().unwrap().as_i8().unwrap()},
-            def: Skill {cd: cd.next().unwrap().as_i8().unwrap(), duration: dur.next().unwrap().as_i8().unwrap()},
-            magic: Skill {cd: cd.next().unwrap().as_i8().unwrap(), duration: dur.next().unwrap().as_i8().unwrap()},
+            dash: Skill {cd: cd.next().unwrap().as_i8().unwrap()},
+            kill: Skill {cd: cd.next().unwrap().as_i8().unwrap()},
+            atk: Skill {cd: cd.next().unwrap().as_i8().unwrap()},
+            def: Skill {cd: cd.next().unwrap().as_i8().unwrap()},
+            magic: Skill {cd: cd.next().unwrap().as_i8().unwrap()},
         };
+        assert!(dur.next().unwrap().as_i8().unwrap()==skills.atk.cd);
+        assert!(dur.next().unwrap().as_i8().unwrap()==skills.def.cd);
+        assert!(dur.next().unwrap().as_i8().unwrap()==skills.magic.cd);
         let id = GeneralId(general["Id"].as_u8().unwrap());
         generals.push(General {
             skills,
@@ -153,7 +156,7 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue, for
             id,
             rest_shift: 0,
         });
-        cell[pos[0]][pos[1]] = id;
+        cell[pos[0] as usize][pos[1] as usize] = id;
     }
     let mut parsed_tech = parsed["Tech_level"].members();
     
@@ -183,6 +186,59 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue, for
             _ => parsed["Round"].as_i16().unwrap(),
         };
     }
+    let cds = utils::json_to_vec(&parsed["Weapon_cds"]);
+    let mut oswt = SWType::Pending;
+    let mut oswp = vec![0,0];
+    let mut oswd = 0;
+    let mut tswt = SWType::Pending;
+    let mut tswp = vec![0,0];
+    let mut tswd = 0;
+    //"Weapons": [{"Type": 2, "Player": 0, "Position": [6, 7], "Rest": 5}]
+    for sw in parsed["Weapons"].members() {
+        if sw["Rest"].as_u8().unwrap()==0 {
+            continue;
+        }
+        let swt = match sw["Type"].as_i32().unwrap() {
+            1 => {SWType::Nuclear},
+            2 => {SWType::Boost},
+            3 => {SWType::Teleport},
+            4 => {SWType::Freeze},
+            _ => panic!(),
+        };
+        if sw["Player"].as_i8().unwrap() == os {
+            oswt = swt;
+            oswp = utils::json_to_vec(&sw["Position"]);
+            oswd = sw["Rest"].as_u8().unwrap();
+        }
+        if sw["Player"].as_i8().unwrap() == ts {
+            tswt = swt;
+            tswp = utils::json_to_vec(&sw["Position"]);
+            tswd = sw["Rest"].as_u8().unwrap();
+        }
+    }
+    let osw = match cds[os as usize] {
+        -1|0 => None,
+        _ => {
+            Some(SuperWeapon {
+                sw_type: oswt,
+                pos: Position{x:oswp[0] as i8,y:oswp[1] as i8},
+                duration: oswd,
+                cd: cds[os as usize] as u8,
+            })
+        }
+    };
+    let tsw = match cds[ts as usize] {
+        -1|0 => None,
+        _ => {
+            Some(SuperWeapon {
+                sw_type: tswt,
+                pos: Position{x:tswp[0] as i8,y:tswp[1] as i8},
+                duration: tswd,
+                cd: cds[ts as usize] as u8,
+            })
+        }
+    };
+    eprintln!("cds {} {} dur {} {}", cds[os as usize], cds[ts as usize], oswd, tswd);
     return GameState {
         owner: owner,
         troop: troop,
@@ -190,13 +246,13 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue, for
         generals: generals,
         our: Side {
             coin: parsed["Coins"][os as usize].as_i32().unwrap(),
-            sw: None,
+            sw: osw,
             tech_tree: tts[os as usize],
             seat: os,
         },
         their: Side {
             coin: parsed["Coins"][ts as usize].as_i32().unwrap(),
-            sw: None,
+            sw: tsw,
             tech_tree: tts[ts as usize],
             seat: ts,
         },
@@ -235,6 +291,7 @@ pub fn read_init(is_player_mode: bool, filename: Option<&String>) -> (GameState,
         }
     }
     init_distance();
+    utils::srand();
     let mut our_seat;
     let their_seat;
     our_seat = parsed["Player"].as_i8().unwrap();
