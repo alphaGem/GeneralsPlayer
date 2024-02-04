@@ -125,7 +125,7 @@ impl gamestate::GameState {
         let atk_troop = num as f32;
         let def_troop = self.troop[dst_pos.x as usize][dst_pos.y as usize] as f32;
         let force = atk*atk_troop-def*def_troop;
-        eprintln!("atk {} * atkt {} - def {} & deft {} = {}", atk, atk_troop, def, def_troop, force);
+        eprintln!("atk {} * atkt {} - def {} * deft {} = {}", atk, atk_troop, def, def_troop, force);
         self.troop[src_pos.x as usize][src_pos.y as usize] -= num;
         if force > 0.0 { // success
             let remaining = (force/atk).ceil() as i16;
@@ -203,7 +203,7 @@ impl gamestate::GameState {
         let mut tail = 1;
         const DX:[i8;4] = [-1,0,1,0];
         const DY:[i8;4] = [0,-1,0,1];
-        dis[src.x as usize][src.y as usize] = 1;
+        dis[src.x as usize][src.y as usize] = 0;
         while head < tail {
             let p = queue[head];
             head += 1;
@@ -265,7 +265,6 @@ impl gamestate::GameState {
         CHECK!(general.general_type != GeneralType::Mine);
         let distance = self.get_general_distance(general.pos, dst_pos, general.rest_shift);
         // eprintln!("dis check {} {} {} {}", general.pos, dst_pos, distance, general.rest_shift);
-        CHECK!(distance > 0);
         CHECK!(distance <= general.rest_shift as i32);
         return true;
     }

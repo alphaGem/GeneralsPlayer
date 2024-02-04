@@ -190,7 +190,12 @@ pub fn send_op(ops: Vec::<Op>) {
     }
     let n = output.len() as i32;
     let be_bytes = n.to_be_bytes();
-    let head = String::from_utf8_lossy(&be_bytes);
+    let head = format!("{}{}{}{}",
+        char::from(be_bytes[0]),
+        char::from(be_bytes[1]),
+        char::from(be_bytes[2]),
+        char::from(be_bytes[3])
+    );
     eprintln!("{}", output);
     match io::stderr().flush() {
         Ok(()) => {}
