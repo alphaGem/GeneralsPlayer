@@ -15,9 +15,9 @@ The AI for a Gen.* game, should be undoubtfully written in the Gen.* of programm
 
 ### 作为播放器使用 Use as a player
 
-在 `player.rs` 里面实现了播放器的功能。如果你想把本程序作为播放器使用，只需要直接编译程序，然后将回放文件名称改为 map.json 并放在运行目录下。如果安装了 cargo 之类的，并且在 Linux 环境下，应该可以直接运行 ./run.sh 来编译运行。游戏结束后代码会 panic（因为懒得写判断了），这是正常的，无需惊慌。
+在 `player.rs` 里面实现了播放器的功能。如果你想把本程序作为播放器使用，只需要在 main 中调用 `player::play(false)` 后直接编译程序，然后将回放文件名称改为 map.json 并放在运行目录下。如果安装了 cargo 之类的，并且在 Linux 环境下，应该可以直接运行 ./run.sh 来编译运行。游戏结束后代码会 panic（因为懒得写判断了），这是正常的，无需惊慌。
 
-In `player.rs` the function of player is implemented. If you want to use this program as a player, just simply compile the program, and rename the replay file into `map.json` and place the replay file under the directory of execution. After the ending of the game the program will panic (because I'm too lazy to check it), which is normal and you don't need to panic.
+In `player.rs` the function of player is implemented. If you want to use this program as a player, just simply call `player::play(false)` in main and compile the program, and then rename the replay file into `map.json` and place the replay file under the directory of execution. After the ending of the game the program will panic (because I'm too lazy to check it), which is normal and you don't need to panic.
 
 在作为播放器使用时，按回车播放下一步。输入`j 数字`后按回车跳转到对应回合的开头。
 
