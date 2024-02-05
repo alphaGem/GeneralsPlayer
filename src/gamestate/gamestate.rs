@@ -117,7 +117,7 @@ impl GameState {
      */
     pub fn promote(&mut self, id: GeneralId, attr: AttrType) {
         if !self.check_promote(id, attr) {panic!("Invalid upgrade!")}
-        let general = &mut self.generals[id.0 as usize];
+        let general = self.generals.get_mut(id).unwrap();
         let cost = get_promotion_cost(general, attr);
         self.our.coin -= cost;
         match attr {
@@ -127,7 +127,7 @@ impl GameState {
         }
     }
     pub fn check_promote(&self, id: GeneralId, attr: AttrType) -> bool {
-        let general = &self.generals[id.0 as usize];
+        let general = self.generals.get(id).unwrap();
         CHECK!(general.attitude == Attitude::Friendly);
         CHECK!(general.alive);
         let cost = get_promotion_cost(general, attr);
@@ -272,6 +272,9 @@ impl GameState {
             }
         }
         for general in &mut self.generals {
+            if !general.alive {
+                continue;
+            }
             match general.general_type {
                 GeneralType::Main | GeneralType::Sub => {
                     match general.attitude {
@@ -350,34 +353,37 @@ impl GameState {
             eprintln!("Their side unmatch");
             ret=false;
         }
-        let n=self.generals.len();
-        let m = gs.generals.len();
-        if n!=m {
-            eprintln!("Generals length unmatch!");
-        }
-        for i in 0..n {
-            let gg = &gs.generals[i];
-            // because replay file doesn't have the rest_shift info, we need to do tricky things here
-            let ng = General {
-                skills: gg.skills,
-                attr: gg.attr,
-                pos: gg.pos,
-                attitude: gg.attitude,
-                general_type: gg.general_type,
-                alive: gg.alive,
-                id: gg.id,
-                rest_shift: self.generals[i].rest_shift,
-            };
-            if self.generals[i] != ng {
-                eprintln!("General diff {} attitude {} {} dashcd {} {} killcd {} {}, buff cd {}/{} {}/{} {}/{}",
-                    i, 
-                    self.generals[i].attitude, gs.generals[i].attitude,
-                    self.generals[i].skills.dash.cd, gs.generals[i].skills.dash.cd,
-                    self.generals[i].skills.kill.cd, gs.generals[i].skills.kill.cd,
-                    self.generals[i].skills.atk.cd, gs.generals[i].skills.atk.cd,
-                    self.generals[i].skills.def.cd, gs.generals[i].skills.def.cd,
-                    self.generals[i].skills.magic.cd, gs.generals[i].skills.magic.cd,
-                );
+        for g in &self.generals {
+            if !g.alive {
+                continue;
+            }
+            if let Some(gg) = gs.generals.get(g.id) {
+                // because replay file doesn't have the rest_shift info, we need to do tricky things here
+                let ng = General {
+                    skills: gg.skills,
+                    attr: gg.attr,
+                    pos: gg.pos,
+                    attitude: gg.attitude,
+                    general_type: gg.general_type,
+                    alive: gg.alive,
+                    id: gg.id,
+                    rest_shift: g.rest_shift,
+                };
+                if *g != ng {
+                    eprintln!("General diff {} attitude {} {} dashcd {} {} killcd {} {}, buff cd {}/{} {}/{} {}/{}",
+                        g.id.0, 
+                        g.attitude, ng.attitude,
+                        g.skills.dash.cd, ng.skills.dash.cd,
+                        g.skills.kill.cd, ng.skills.kill.cd,
+                        g.skills.atk.cd, ng.skills.atk.cd,
+                        g.skills.def.cd, ng.skills.def.cd,
+                        g.skills.magic.cd, ng.skills.magic.cd,
+                    );
+                    ret=false;
+                }
+            }
+            else {
+                eprintln!("General {} not found", g.id.0);
                 ret=false;
             }
         }

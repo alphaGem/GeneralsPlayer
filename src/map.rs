@@ -157,7 +157,9 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue, for
             id,
             rest_shift: 0,
         });
-        cell[pos[0] as usize][pos[1] as usize] = id;
+        if general["Alive"].as_i32().unwrap()!=0 {
+            cell[pos[0] as usize][pos[1] as usize] = id;
+        }
     }
     let mut parsed_tech = parsed["Tech_level"].members();
     
@@ -244,7 +246,7 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue, for
         owner: owner,
         troop: troop,
         cell: cell,
-        generals: generals,
+        generals: GeneralStack::from(generals),
         our: Side {
             coin: parsed["Coins"][os as usize].as_i32().unwrap(),
             sw: osw,
@@ -305,7 +307,7 @@ pub fn read_init(is_player_mode: bool, filename: Option<&String>) -> (GameState,
             owner: [[Attitude::Neutral;16];15],
             troop: [[0 as i16;16];15],
             cell: [[general::NOTHING;16];15],
-            generals: vec![],
+            generals: GeneralStack::from(vec![]),
             our: Side {
                 coin: 0,
                 sw: None,

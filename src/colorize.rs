@@ -166,7 +166,7 @@ impl GameState {
                     }
                 }
                 if self.cell[i][j]!=general::NOTHING {
-                    match self.generals[self.cell[i][j].0 as usize].general_type {
+                    match self.generals.get(self.cell[i][j]).unwrap().general_type {
                         GeneralType::Main|GeneralType::Sub => info = info.bold(),
                         GeneralType::Mine => info = info.bold().underline(),
                     }

@@ -60,6 +60,7 @@ pub use gamestate::{
     SuperWeapon,
     TechType,
     TechTree,
+    GeneralStack,
     Side,
     Attitude,
     GameState,

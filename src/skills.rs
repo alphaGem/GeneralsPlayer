@@ -33,7 +33,7 @@ impl gamestate::GameState {
         // general effect
         let id = self.cell[pos.x as usize][pos.y as usize];
         if id != general::NOTHING {
-            let general = &self.generals[id.0 as usize];
+            let general = self.generals.get(id).unwrap();
             match general.general_type {
                 GeneralType::Main | GeneralType::Sub => {
                     match general.attr.def {
@@ -58,6 +58,7 @@ impl gamestate::GameState {
         let defender_attitude = self.owner[pos.x as usize][pos.y as usize];
         for general in &self.generals {
             if !general.in_range(pos) {continue;}
+            if !general.alive {continue;}
             if general.attitude == defender_attitude {
                 if general.skills.def.cd > 0 {
                     def *= 1.5;
@@ -91,6 +92,7 @@ impl gamestate::GameState {
         // general skill effect
         for general in &self.generals {
             if !general.in_range(pos) {continue;}
+            if !general.alive {continue;}
             let attacker_attitude = self.owner[pos.x as usize][pos.y as usize];
             if general.attitude == attacker_attitude {
                 if general.skills.atk.cd > 0 {
@@ -134,7 +136,7 @@ impl gamestate::GameState {
             self.troop[dst_pos.x as usize][dst_pos.y as usize] = remaining;
             self.owner[dst_pos.x as usize][dst_pos.y as usize] = attacker;
             if gid != general::NOTHING {
-                self.generals[gid.0 as usize].attitude = attacker;
+                self.generals.get_mut(gid).unwrap().attitude = attacker;
             }
         }
         else { // fail
@@ -245,11 +247,11 @@ impl gamestate::GameState {
     // general move
     pub fn shift(&mut self, general_id: GeneralId, dst_pos: Position) {
         if !self.check_shift(general_id, dst_pos) {panic!("invalid shift!");}
-        let general = &self.generals[general_id.0 as usize];
+        let general = self.generals.get(general_id).unwrap();
         let pos = general.pos;
         let rest_shift = general.rest_shift;
         let d = self.get_general_distance(pos, dst_pos, rest_shift);
-        let general = &mut self.generals[general_id.0 as usize];
+        let general = self.generals.get_mut(general_id).unwrap();
         general.rest_shift -= d as i8;
         general.pos = dst_pos;
         self.cell[pos.x as usize][pos.y as usize] = general::NOTHING;
@@ -260,7 +262,7 @@ impl gamestate::GameState {
     pub fn check_shift(&self, general_id: GeneralId, dst_pos: Position) -> bool {
         CHECK!(self.cell[dst_pos.x as usize][dst_pos.y as usize]==general::NOTHING);
         CHECK!(self.owner[dst_pos.x as usize][dst_pos.y as usize]==Attitude::Friendly);
-        let general = &self.generals[general_id.0 as usize];
+        let general = self.generals.get(general_id).unwrap();
         CHECK!(self.check_movability(general.pos, dst_pos));
         CHECK!(general.general_type != GeneralType::Mine);
         let distance = self.get_general_distance(general.pos, dst_pos, general.rest_shift);
@@ -309,10 +311,10 @@ impl gamestate::GameState {
     pub fn dash(&mut self, general_id: GeneralId, dst_pos: Position) {
         if !self.check_dash(general_id, dst_pos) {panic!("Invalid dash");}
         self.our.coin -= DASH_COST;
-        let general = &mut self.generals[general_id.0 as usize];
+        let general = self.generals.get_mut(general_id).unwrap();
         let pos = general.pos;
         self.attack(pos, dst_pos, self.troop[pos.x as usize][pos.y as usize]-1);
-        let general = &mut self.generals[general_id.0 as usize];
+        let general = self.generals.get_mut(general_id).unwrap();
         general.pos = dst_pos;
         general.skills.dash.cd = DASH_CD;
         self.cell[pos.x as usize][pos.y as usize]=general::NOTHING;
@@ -323,11 +325,11 @@ impl gamestate::GameState {
     // - no general at destination
     // - can conquer
     pub fn check_dash(&self, general_id: GeneralId, dst_pos: Position) -> bool{
-        let general = &self.generals[general_id.0 as usize];
+        let general = self.generals.get(general_id).unwrap();
         CHECK!(self.common_check(general, SkillType::Dash, Some(dst_pos)));
         CHECK!(self.check_movability(general.pos, dst_pos));
         CHECK!(self.cell[dst_pos.x as usize][dst_pos.y as usize] == general::NOTHING);
-        CHECK!(self.troop[dst_pos.x as usize][dst_pos.y as usize] >= 2);
+        CHECK!(self.troop[general.pos.x as usize][general.pos.y as usize] >= 2);
         CHECK!(self.can_conquer(general.pos, dst_pos));
         return true;
     }
@@ -337,7 +339,7 @@ impl gamestate::GameState {
      */
     pub fn kill(&mut self, general_id: GeneralId, dst_pos: Position) {
         if !self.check_kill(general_id, dst_pos) {panic!("Invalid kill");}
-        let general = &mut self.generals[general_id.0 as usize];
+        let general = self.generals.get_mut(general_id).unwrap();
         self.our.coin -= KILL_COST;
         general.skills.kill.cd = KILL_CD;
         Self::attrition(
@@ -349,7 +351,7 @@ impl gamestate::GameState {
     }
 
     pub fn check_kill(&self, general_id: GeneralId, dst_pos: Position) -> bool {
-        let general = &self.generals[general_id.0 as usize];
+        let general = self.generals.get(general_id).unwrap();
         CHECK!(self.common_check(general, SkillType::Kill, Some(dst_pos)));
         return true;
     }
@@ -359,7 +361,7 @@ impl gamestate::GameState {
      */
     pub fn buff(&mut self, general_id: GeneralId, skill_type: SkillType) {
         if !self.check_buff(general_id, skill_type) {panic!("Invalid buff");}
-        let general = &mut self.generals[general_id.0 as usize];
+        let general = self.generals.get_mut(general_id).unwrap();
         match skill_type {
             SkillType::Atk => {self.our.coin -= ATK_COST; general.skills.atk.cd = ATK_CD;}
             SkillType::Def => {self.our.coin -= DEF_COST; general.skills.def.cd = DEF_CD;}
@@ -368,7 +370,7 @@ impl gamestate::GameState {
         }
     }
     pub fn check_buff(&self, general_id: GeneralId, skill_type: SkillType) -> bool{
-        let general = &self.generals[general_id.0 as usize];
+        let general = self.generals.get(general_id).unwrap();
         CHECK!(self.common_check(general, skill_type, None));
         return true;
     }
@@ -395,7 +397,7 @@ impl gamestate::GameState {
                     self.owner[x as usize][y as usize] = Attitude::Neutral;
                     let gid = self.cell[x as usize][y as usize];
                     if gid != general::NOTHING {
-                        self.generals[gid.0 as usize].alive = false;
+                        self.generals.get_mut(gid).unwrap().alive = false;
                         self.cell[x as usize][y as usize] = general::NOTHING;
                     }
                 }

@@ -7,6 +7,7 @@ pub use definition::{
     SuperWeapon,
     TechType,
     TechTree,
+    GeneralStack,
     Side,
     GameState,
 };
