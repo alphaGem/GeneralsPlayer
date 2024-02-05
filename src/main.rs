@@ -50,7 +50,7 @@ fn double_ai() {
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "full");
-    player::play(true);
-    // run_ai();
+    // player::play(true);
+    run_ai();
     // double_ai();
 }

@@ -8,7 +8,7 @@ version = "0.12.4"
 
 [[package]]
 name = "main"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "json",
 ]
