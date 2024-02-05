@@ -14,11 +14,15 @@ fn run_ai() {
         else {
             loop {
                 let line = io::stdin().lock().lines().next().unwrap().unwrap();
-                let ints = line.split(' ');
+                let ints = line.split_whitespace();
                 let mut vec = vec![];
                 for i in ints {
-                    vec.push(i.parse::<i32>().unwrap());
+                    eprint!("{} ", i);
+                    if let Ok(v) = i.trim().parse::<i32>() {
+                        vec.push(v);
+                    }
                 }
+                eprintln!();
                 let op = Op::from(vec);
                 gs = operation::apply_op(&gs, op);
                 // gs.print();
@@ -50,7 +54,7 @@ fn double_ai() {
 
 fn main() {
     env::set_var("RUST_BACKTRACE", "full");
-    player::play(true);
-    // run_ai();
+    // player::play(true);
+    run_ai();
     // double_ai();
 }

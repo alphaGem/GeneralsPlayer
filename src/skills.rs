@@ -76,7 +76,7 @@ impl gamestate::GameState {
                 def *= 3.0; // the sw is really strong!
             }
         }
-        eprintln!("def {}", def);
+        // eprintln!("def {}", def);
         return def;
     }
 
@@ -111,7 +111,7 @@ impl gamestate::GameState {
                 atk *= 3.0; // the sw is really strong!
             }
         }
-        eprintln!("atk {}", atk);
+        // eprintln!("atk {}", atk);
         return atk;
     }
 
@@ -127,7 +127,7 @@ impl gamestate::GameState {
         let atk_troop = num as f32;
         let def_troop = self.troop[dst_pos.x as usize][dst_pos.y as usize] as f32;
         let force = atk*atk_troop-def*def_troop;
-        eprintln!("atk {} * atkt {} - def {} * deft {} = {}", atk, atk_troop, def, def_troop, force);
+        // eprintln!("atk {} * atkt {} - def {} * deft {} = {}", atk, atk_troop, def, def_troop, force);
         self.troop[src_pos.x as usize][src_pos.y as usize] -= num;
         if force > 0.0 { // success
             let remaining = (force/atk).ceil() as i16;
@@ -185,15 +185,15 @@ impl gamestate::GameState {
     // normal attack / movement
     pub fn march(&mut self, src_pos: Position, dst_pos: Position, num: i16) {
         if !self.check_march(src_pos, dst_pos, num) {panic!("Invalid march!")}
-        self.attack(src_pos, dst_pos, num);
+        self.attack(src_pos, dst_pos, std::cmp::min(num, self.troop[src_pos.x as usize][src_pos.y as usize]-1));
         self.rest_march -= 1;
     }
     pub fn check_march(&self, src_pos: Position, dst_pos: Position, num: i16) -> bool {
         CHECK!(self.rest_march>0);
         CHECK!(self.owner[src_pos.x as usize][src_pos.y as usize]==Attitude::Friendly);
-        CHECK!(self.check_movability(src_pos, dst_pos));
         CHECK!(num>0);
-        CHECK!(self.troop[src_pos.x as usize][src_pos.y as usize]-num>=1);
+        CHECK!(self.troop[src_pos.x as usize][src_pos.y as usize]>=2);
+        CHECK!(self.check_movability(src_pos, dst_pos));
         CHECK!(utils::manhattan_distance(src_pos, dst_pos)<=1);
         return true;
     }

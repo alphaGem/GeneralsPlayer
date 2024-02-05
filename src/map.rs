@@ -241,7 +241,7 @@ pub fn update_state_by_json(old_state: &GameState, parsed: &json::JsonValue, for
             })
         }
     };
-    eprintln!("cds {} {} dur {} {}", cds[os as usize], cds[ts as usize], oswd, tswd);
+    // eprintln!("cds {} {} dur {} {}", cds[os as usize], cds[ts as usize], oswd, tswd);
     return GameState {
         owner: owner,
         troop: troop,

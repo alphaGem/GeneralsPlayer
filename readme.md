@@ -1,5 +1,5 @@
-最新状态（2024.2.5 14:30）：通过了一些对拍。
-Latest status (14:30 05/02/2024): The programme has suceeded in some batched tests.
+最新状态（2024.2.5 19:30）：通过了一些与自身的和与别的 ai 的对拍。
+Latest status (19:30 05/02/2024): The programme has suceeded in some batched tests against itself and other AIs.
 
 **警告：本程序可能有潜在的 bug。**
 
